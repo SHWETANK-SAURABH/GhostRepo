@@ -15,6 +15,7 @@ PREFIXES = {
     "configuration": "cfg",
     "documentation": "doc",
     "testing": "tst",
+    "static_analysis": "sta",
 }
 MAX_DESCRIPTION = 1000
 MAX_STRING = 400

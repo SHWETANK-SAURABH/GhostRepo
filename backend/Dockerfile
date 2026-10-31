@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements-dev.txt
 COPY app ./app
 COPY tests ./tests
 USER ghost
-ENV HOME=/home/ghost
+ENV HOME=/home/ghost GHOSTREPO_DATABASE_URL=sqlite:////tmp/ghostrepo-import.db
 CMD ["python", "-m", "pytest", "-p", "no:cacheprovider"]
 
 FROM base AS runtime

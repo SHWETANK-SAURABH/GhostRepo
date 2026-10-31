@@ -66,6 +66,16 @@ PLAYBOOKS: dict[str, Playbook] = {
         "Under 1 hour",
         ("Confirm each flagged value is fake, or rotate it.",),
     ),
+    "static-syntax-errors": Playbook(
+        "Code that does not parse with current Python cannot run until it is ported.",
+        "Varies widely with the amount of code",
+        ("Run ruff check with rule E9 and confirm no syntax errors remain.",),
+    ),
+    "static-issues": Playbook(
+        "These rules often point at real mistakes, such as undefined names.",
+        "1 to 4 hours",
+        ("Run ruff check with the rules E9 and F and review what remains.",),
+    ),
     "docs-no-readme": Playbook(
         "Without a README, nobody can tell what the project does or how to start it.",
         "1 to 2 hours",

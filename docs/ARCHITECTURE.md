@@ -16,6 +16,7 @@ Investigation orchestrator
   ├─ Git Historian
   ├─ Dependency Detective
   ├─ Configuration Inspector
+  ├─ Static analysis (Ruff, Python only)
   ├─ Documentation Inspector
   └─ Test Investigator
   │
@@ -80,7 +81,7 @@ The score is 100 minus a penalty for each verified finding: critical 25, high 12
 
 ```text
 backend/app/
-  analyzers/    Six deterministic analyzers and the bounded file walker
+  analyzers/    Deterministic analyzers, Ruff static analysis and the bounded file walker
   agents/       Orchestrator, Ghost Analyst, Resurrection Planner, README generator
   services/     Evidence, findings, reports, patches, Ollama client, settings
   security/     Path validation, secret redaction, process safety

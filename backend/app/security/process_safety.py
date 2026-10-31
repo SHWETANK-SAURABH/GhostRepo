@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_MAX_OUTPUT_BYTES = 2_000_000
-_ALLOWED_PROGRAMS = {"git"}
+_ALLOWED_PROGRAMS = {"git", "ruff", "ruff.exe"}
 
 
 class ProcessError(Exception):
@@ -32,8 +32,9 @@ def run_command(
 ) -> ProcessResult:
     if not isinstance(args, list) or not args or not all(isinstance(a, str) for a in args):
         raise ProcessError("Commands must be argument arrays.")
-    if args[0] not in _ALLOWED_PROGRAMS:
-        raise ProcessError(f"The program {args[0]} is not allowed.")
+    program = Path(args[0]).name
+    if program not in _ALLOWED_PROGRAMS:
+        raise ProcessError(f"The program {program} is not allowed.")
 
     creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
@@ -51,9 +52,9 @@ def run_command(
                 creationflags=creationflags,
             )
         except subprocess.TimeoutExpired as exc:
-            raise ProcessError(f"{args[0]} did not finish within {timeout:g} seconds.") from exc
+            raise ProcessError(f"{program} did not finish within {timeout:g} seconds.") from exc
         except OSError as exc:
-            raise ProcessError(f"{args[0]} could not be started.") from exc
+            raise ProcessError(f"{program} could not be started.") from exc
 
         stdout, truncated = _read_bounded(out, max_output_bytes)
         stderr, _ = _read_bounded(err, 8_000)

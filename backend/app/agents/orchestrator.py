@@ -19,6 +19,7 @@ from app.analyzers import (
     documentation_analyzer,
     git_historian,
     repository_scout,
+    static_analysis,
     test_discovery,
 )
 from app.analyzers.base import AnalyzerResult, ScanContext, ScanTimeout, walk_repository
@@ -234,6 +235,11 @@ class InvestigationRunner:
             "configuration",
             "configuration",
             lambda: configuration_analyzer.analyze(ctx, inventory),
+        )
+        stage(
+            "configuration",
+            "static_analysis",
+            lambda: static_analysis.analyze(ctx, inventory),
         )
         stage(
             "documentation",

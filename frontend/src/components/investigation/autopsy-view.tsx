@@ -72,6 +72,7 @@ function HealthCard({ report }: { report: Report }) {
 
 function RepositorySection({ data, report }: { data: Profile["repository"]; report: Report }) {
   if (!data) return <Unavailable what="Repository information" />;
+  const staticAnalysis = report.profile.static_analysis;
   return (
     <>
       <Facts
@@ -80,6 +81,14 @@ function RepositorySection({ data, report }: { data: Profile["repository"]; repo
           ["Frameworks", report.investigation.repository.detected_frameworks.join(", ") || "None detected"],
           ["Build tools", data.build_tools.join(", ") || "None detected"],
           ["Files scanned", data.file_count],
+          ...(staticAnalysis?.ran
+            ? ([
+                [
+                    "Ruff issues",
+                    `${staticAnalysis.issue_count} in ${staticAnalysis.file_count} files`,
+                ],
+              ] as [string, ReactNode][])
+            : []),
         ]}
       />
       {data.languages.length > 0 && (

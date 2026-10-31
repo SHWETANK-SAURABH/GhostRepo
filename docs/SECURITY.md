@@ -21,7 +21,8 @@ GhostRepo is a single-user local tool. It has no login, so anyone who can reach 
 | Malformed manifests | Parser errors become findings; deep nesting is caught | `analyzers/dependency_analyzer.py` |
 | XML entity attacks in `pom.xml` | Parsed with defusedxml | `analyzers/dependency_analyzer.py` |
 | Running repository code | No analyzer runs repository code. Tests are discovered only | `analyzers/test_discovery.py` |
-| Command injection | Argument arrays only, never a shell, with an allowlist containing only `git`, plus timeouts and bounded output | `security/process_safety.py` |
+| Command injection | Argument arrays only, never a shell, with an allowlist containing only `git` and `ruff`, plus timeouts and bounded output | `security/process_safety.py` |
+| Hostile Ruff configuration | Ruff runs with `--isolated` and `--no-cache`, so a repository's config is ignored and nothing is written there. Ruff parses files without running them, and results keep rule codes and file names only | `analyzers/static_analysis.py` |
 | Hostile `.git/config` | See below | `analyzers/git_historian.py` |
 | `.git` pointing elsewhere | Symlinks, pointer files and `commondir` are refused | `analyzers/git_historian.py` |
 | Secrets in reports | Secret files are never read. Matches record only rule, file and line. Redaction runs on evidence, model input, model output, README drafts and exports | `security/secret_redaction.py` |

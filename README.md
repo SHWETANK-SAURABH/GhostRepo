@@ -6,7 +6,7 @@ GhostRepo investigates a local repository and helps you prepare a safe recovery 
 
 ## What it does
 
-- **Investigates** languages, frameworks, Git history, dependencies, configuration, documentation and tests.
+- **Investigates** languages, frameworks, Git history, dependencies, configuration, documentation and tests, and runs Ruff on Python code.
 - **Reports verified findings** with severity, evidence, source file, confidence and detection method.
 - **Adds AI interpretation** from a local Ollama model, kept separate from verified findings and labeled.
 - **Builds a resurrection plan** in priority order, with verification steps and rough effort estimates.
@@ -18,7 +18,7 @@ It works without Ollama. Verified findings, the plan, README drafts, patches and
 
 ### Supported ecosystems
 
-Manifest and test analysis covers Python, JavaScript, TypeScript, Java, Go and Rust. Other languages are counted by file size and get no deeper analysis.
+Manifest and test analysis covers Python, JavaScript, TypeScript, Java, Go and Rust. Other languages are counted by file size and get no deeper analysis. Static analysis covers Python only, using Ruff's error and pyflakes rules.
 
 GhostRepo reads manifests offline, so it does **not** check whether dependencies are outdated or vulnerable. Reports say so. It discovers tests but does not run them, so it cannot tell you whether they pass.
 
@@ -74,7 +74,7 @@ docker compose up --build
 Open <http://localhost:3000>. Ports are published on the loopback interface only.
 
 - Repositories come from `./workspace`, mounted read-only. To use another folder, set `GHOSTREPO_WORKSPACE=/path/to/repositories`.
-- The backend uses Ollama on the host by default. Ollama must accept connections from containers, which usually means setting `OLLAMA_HOST=0.0.0.0` on the host. On a shared network, that also exposes Ollama to other machines, so prefer the container option below.
+- The backend uses Ollama on the host by default. With Docker Desktop on Windows this worked with no changes to Ollama. Docker Engine on Linux may need Ollama to accept connections from containers, usually by setting `OLLAMA_HOST=0.0.0.0`. On a shared network, that also exposes Ollama to other machines, so prefer the container option below.
 - To run Ollama in a container as well:
 
   ```sh

@@ -1,33 +1,50 @@
 # Verification report
 
-Results from the final verification on Windows 11, with Python 3.11, Node.js 24, Git 2.55 and Ollama 0.32.4 running `gemma3:4b`.
+Results from the final verification on Windows 11, with Python 3.11, Node.js 24, Git 2.55, Docker Desktop 29.5 and Ollama 0.32.4 running `gemma3:4b`.
 
 ## Summary
 
-The MVP works end to end with a real local model, with one exception: **the Docker setup has not been run**, because the Docker daemon was not running on the test machine.
+The MVP works end to end with a real local model, both running directly on Windows and in Docker containers.
 
 | Check | Result |
 | --- | --- |
-| Backend tests | 245 passed, 3 skipped |
+| Backend tests on Windows | 252 passed, 3 skipped |
+| Backend tests on Linux, in the `test` Docker target | 251 passed, 4 skipped |
 | Backend lint (`ruff`, including security rules) | Passed |
 | Frontend tests | 29 passed |
 | Frontend typecheck, lint and production build | Passed |
-| Browser walkthrough with the real model (`npm run e2e`) | Passed |
-| `bandit` | 0 high, 0 medium, 3 low (reviewed below) |
+| Browser walkthrough with the real model, run directly | Passed on its final run |
+| Browser walkthrough with the real model, in Docker Compose | Passed |
+| `bandit` | 3 low severity, reviewed below |
 | `npm audit --omit=dev` | 0 vulnerabilities |
-| `docker compose config` | Valid |
-| Docker image build and run | **Not run** |
 
-The live model test is one of the 245 and runs only when Ollama and the model are available.
+**What was skipped.** On Windows, 3 tests need symlink creation, which this account cannot do. They passed on Linux. On Linux, 3 Windows junction tests do not apply, and they passed on Windows. The live model test also skips on Linux because the test container has no Ollama, and it passed on Windows.
 
-The 3 skipped tests need symlink creation, which this Windows account cannot do. Equivalent tests using Windows junctions passed. The `test` target in `backend/Dockerfile` runs the suite on Linux, where the symlink tests would run.
+## Docker
+
+Tested with `docker compose up --build`, using the default setup with Ollama on the host.
+
+| Check | Result |
+| --- | --- |
+| Both images build, and the backend health check reports healthy | Passed |
+| Backend runs as a non-root user | Passed (uid 1000) |
+| Workspace mount refuses writes | Passed |
+| Backend reaches Ollama on the host | Passed |
+| Git history reads from a mount owned by another user | Passed |
+| Browser walkthrough through the containers | Passed |
+| Downloaded patch passes `git apply --check` | Passed |
+| Cross-site write through the proxy | Refused with 403 |
+| Demo button on the read-only mount | Clear 409 message |
+| Errors in the backend log | None |
+
+**Not tested:** the optional `ollama` Compose profile, and Docker Engine on Linux.
 
 ## Acceptance criteria
 
 | Criterion | Status | How it was checked |
 | --- | --- | --- |
-| Frontend starts | Met | `next start` and `npm run dev` |
-| Backend starts | Met | `uvicorn` |
+| Frontend starts | Met | `next start`, `npm run dev` and Docker |
+| Backend starts | Met | `uvicorn` and Docker |
 | Frontend communicates with backend | Met | Browser walkthrough through the proxy |
 | User can select an allowed repository | Met | Browser walkthrough |
 | Invalid paths are rejected | Met | Browser walkthrough and tests |
@@ -49,14 +66,14 @@ The 3 skipped tests need symlink creation, which this Windows account cannot do.
 | Reports can be exported | Met | Markdown and JSON downloads in the walkthrough |
 | Works without cloud AI APIs | Met | No cloud API is used |
 | Automated tests pass | Met | See above |
-| Installation documentation is complete | Met, except Docker is unproven | README; the local steps were followed for the checks above, but the Docker steps were not run |
+| Installation documentation is complete | Met | The local and default Docker steps were used for the checks above |
 
 ## Real-model results
 
 | Repository | Files | AI status | AI findings kept | AI items rejected | Time for AI |
 | --- | --- | --- | --- | --- | --- |
-| Synthetic demo | 9 | Completed | 6 to 7 per run | 0 to 2 | About 20 seconds |
-| Clone of this project | 146 | Completed | 6 to 8 per run | 1 to 3 | About 25 seconds |
+| Synthetic demo | 9 | Completed | 6 to 7 per run | 0 to 3 | About 20 seconds |
+| Clone of this project | About 147 | Completed | 6 to 8 per run | 1 to 3 | About 25 seconds |
 
 Output varies between runs. In a direct test, the model succeeded on the first attempt in four of four runs. Timing is from this machine only.
 
@@ -79,6 +96,8 @@ The `bandit` findings are all expected:
 - **B405:** imports `ParseError` for exception handling. Parsing itself uses defusedxml.
 - **B404 and B603:** the single subprocess wrapper, which uses argument arrays, an allowlist and timeouts.
 
+Ruff itself is covered by tests that plant a repository config trying to hide issues, and that confirm no source text is kept and nothing is written to the repository.
+
 Tests cover traversal, symlink and junction escapes, hostile Git configuration, XML entity attacks, secret redaction, prompt delimiter escape, cross-site writes and unsafe patch paths. No secret value or absolute path appeared in any exported file.
 
 ## Local-only operation
@@ -90,9 +109,11 @@ Tests cover traversal, symlink and junction escapes, hostile Git configuration, 
 
 ## Known gaps
 
-- **Docker is unverified.** The configuration is valid, but no image has been built or run. The cases to watch are the proxy's Host header and reading mounted repositories owned by another user.
+- **Static analysis is limited.** Only Python is covered, and only with Ruff's `E9` and `F` rules. The other ecosystems have no static analyzer.
+- **Patches do not change source code.** They only add missing project files and `.gitignore` entries, so GhostRepo does not suggest code fixes.
+- **No license file.** This was the project owner's decision, so GhostRepo's own scan reports it as a finding.
 - **Qwen3 is untested.** Only `gemma3:4b` was run.
-- **The browser walkthrough failed in three of six runs.** Two failures had known causes that are fixed: a stale server left over from an earlier check, and the script treating its own deliberate 422 as an error. The third is unconfirmed. The frontend port was not yet listening when checked, and the walkthrough passed on rerun after waiting for the servers to respond. The script has no readiness wait of its own, so start both servers and confirm they respond first.
+- **The browser walkthrough failed in three of eight runs.** Two failures had known causes that are fixed: a stale server left over from an earlier check, and the script treating its own deliberate 422 as an error. The third is unconfirmed. The frontend port was not yet listening when checked, and the walkthrough passed on rerun after waiting for the servers to respond. The script has no readiness wait of its own, so start both servers and confirm they respond first.
 - **AI text can still be wrong.** Citations and known claim types are enforced, but a citation shows only that the evidence exists, not that the model interpreted it correctly.
 - **The AI README overview is labeled but has no claim policy.** In one test, it described the project's "original purpose" with more confidence than the facts supported.
 - **Only some of the frontend is covered by component tests.** The dashboard, forms, progress, findings, plan, README and patch approval have them. Other pages are covered by the walkthrough.

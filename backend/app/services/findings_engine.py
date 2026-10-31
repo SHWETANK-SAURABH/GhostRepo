@@ -71,6 +71,18 @@ RULES: dict[str, Rule] = {
         "config-no-ci", "No continuous integration", "low", "maintenance", 0.9,
         "Add a CI workflow that runs the project's tests on each change.",
     ),
+    "static_analysis.syntax_errors": Rule(
+        "static-syntax-errors", "Python files do not parse", "medium", "maintenance", 0.9,
+        "Check which Python version these files target. Older code may need porting.",
+    ),
+    "static_analysis.issues": Rule(
+        "static-issues", "Static analysis reported issues", "low", "maintenance", 0.9,
+        "Run ruff check with the rules E9 and F, then review what it reports.",
+    ),
+    "static_analysis.incomplete": Rule(
+        "static-incomplete", "Static analysis did not finish", "info", "maintenance", 1.0,
+        "Run ruff check by hand if this repository's Python code matters to you.",
+    ),
     "testing.no_tests": Rule(
         "tests-none", "No tests found", "high", "testing", 0.85,
         "Add a small smoke test first, so later changes have a safety net.",

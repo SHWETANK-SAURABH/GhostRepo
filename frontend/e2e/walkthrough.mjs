@@ -1,6 +1,7 @@
 // Drives the running app in a locally installed browser, through the whole product workflow.
 // Start the backend and frontend first. Usage: npm run e2e
-// Options: E2E_URL, E2E_BROWSER (msedge or chrome), E2E_WAIT_FOR_AI=1 to wait for the real model.
+// Options: E2E_URL, E2E_BROWSER (msedge or chrome), E2E_WAIT_FOR_AI=1 to wait for the real model,
+// E2E_EXISTING_DEMO=1 to use a demo repository that already exists in the workspace.
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,8 +55,13 @@ try {
   await expectText("inside the configured workspace root");
 
   step("Demo repository is created and confirmed");
-  await page.getByRole("button", { name: "Create demo repository" }).click();
-  await page.getByRole("button", { name: "Create demo", exact: true }).click();
+  if (process.env.E2E_EXISTING_DEMO === "1") {
+    // A read-only workspace mount, as in Docker: the demo was created on the host.
+    await page.getByRole("button", { name: /haunted-demo/ }).click();
+  } else {
+    await page.getByRole("button", { name: "Create demo repository" }).click();
+    await page.getByRole("button", { name: "Create demo", exact: true }).click();
+  }
   const start = page.getByRole("button", { name: /Confirm and start investigation/ });
   await start.waitFor({ timeout: 30_000 });
   await shot("02-confirm-repository");

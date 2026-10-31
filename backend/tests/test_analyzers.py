@@ -10,6 +10,7 @@ from app.analyzers import (
     documentation_analyzer,
     git_historian,
     repository_scout,
+    static_analysis,
     test_discovery,
 )
 from app.analyzers.base import read_text
@@ -197,6 +198,67 @@ class TestGitHistorian:
         init_git(tmp_path, message=f"add key {AWS_KEY}")
         ctx, _ = scan(tmp_path)
         assert AWS_KEY not in json.dumps(git_historian.analyze(ctx).facts)
+
+
+class TestStaticAnalysis:
+    def test_reports_codes_and_files_without_source_text(self, tmp_path: Path) -> None:
+        make_repo(
+            tmp_path,
+            {"a.py": "import os\nprint(PRIVATE_IDENTIFIER_MARKER)\n", "clean.py": "x = 1\n"},
+        )
+        ctx, inventory = scan(tmp_path)
+        result = static_analysis.analyze(ctx, inventory)
+        assert result.facts["ran"] is True
+        assert result.facts["codes"] == {"F401": 1, "F821": 1}
+        assert result.facts["files"] == ["a.py"]
+        assert "static_analysis.issues" in kinds(result)
+        everything = json.dumps([result.facts, [vars(item) for item in result.evidence]])
+        assert "PRIVATE_IDENTIFIER_MARKER" not in everything
+
+    def test_reports_syntax_errors(self, tmp_path: Path) -> None:
+        make_repo(tmp_path, {"old.py": 'print "python 2"\n'})
+        ctx, inventory = scan(tmp_path)
+        result = static_analysis.analyze(ctx, inventory)
+        assert result.facts["syntax_error_files"] == ["old.py"]
+        assert "static_analysis.syntax_errors" in kinds(result)
+
+    def test_clean_code(self, tmp_path: Path) -> None:
+        make_repo(tmp_path, {"a.py": "x = 1\n"})
+        ctx, inventory = scan(tmp_path)
+        assert "static_analysis.clean" in kinds(static_analysis.analyze(ctx, inventory))
+
+    def test_skips_repositories_without_python(self, tmp_path: Path) -> None:
+        make_repo(tmp_path, {"main.go": "package main\n"})
+        ctx, inventory = scan(tmp_path)
+        result = static_analysis.analyze(ctx, inventory)
+        assert result.facts == {"ran": False, "reason": "no_python_files"}
+        assert result.evidence == []
+
+    def test_repository_config_cannot_hide_issues(self, tmp_path: Path) -> None:
+        make_repo(
+            tmp_path,
+            {
+                "a.py": "import os\n",
+                "pyproject.toml": '[tool.ruff]\nexclude = ["a.py"]\n[tool.ruff.lint]\nignore = ["F"]\n',
+                "ruff.toml": 'exclude = ["a.py"]\n',
+            },
+        )
+        ctx, inventory = scan(tmp_path)
+        assert static_analysis.analyze(ctx, inventory).facts["codes"] == {"F401": 1}
+
+    def test_does_not_write_into_the_repository(self, tmp_path: Path) -> None:
+        make_repo(tmp_path, {"a.py": "import os\n"})
+        ctx, inventory = scan(tmp_path)
+        static_analysis.analyze(ctx, inventory)
+        assert [path.name for path in tmp_path.iterdir()] == ["a.py"]
+
+    def test_missing_ruff_is_reported_as_not_run(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        make_repo(tmp_path, {"a.py": "x = 1\n"})
+        monkeypatch.setattr(static_analysis, "find_ruff", lambda: None)
+        ctx, inventory = scan(tmp_path)
+        assert static_analysis.analyze(ctx, inventory).facts["reason"] == "ruff_unavailable"
 
 
 class TestManifestParsers:

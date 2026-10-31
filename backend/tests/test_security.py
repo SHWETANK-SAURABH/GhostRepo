@@ -32,15 +32,20 @@ class TestRepositoryPath:
         assert resolve_repository_path("repo", workspace) == repo.resolve()
         assert resolve_repository_path(str(repo), workspace) == repo.resolve()
 
-    @pytest.mark.parametrize(
-        "raw", ["../outside", "repo/../../outside", "..", ".", "..\\outside", "repo/../.."]
-    )
+    @pytest.mark.parametrize("raw", ["../outside", "repo/../../outside", "..", ".", "repo/../.."])
     def test_rejects_traversal(self, workspace: Path, raw: str) -> None:
         (workspace / "repo").mkdir()
         (workspace.parent / "outside").mkdir(exist_ok=True)
         with pytest.raises(PathValidationError) as error:
             resolve_repository_path(raw, workspace)
         assert error.value.code == "outside_workspace"
+
+    def test_backslash_traversal_is_refused_on_every_platform(self, workspace: Path) -> None:
+        # Windows treats this as traversal. On Linux it is a folder name that does not exist.
+        (workspace.parent / "outside").mkdir(exist_ok=True)
+        with pytest.raises(PathValidationError) as error:
+            resolve_repository_path("..\\outside", workspace)
+        assert error.value.code in {"outside_workspace", "not_found"}
 
     def test_rejects_absolute_path_outside_workspace(self, workspace: Path, tmp_path: Path) -> None:
         with pytest.raises(PathValidationError) as error:

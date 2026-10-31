@@ -194,6 +194,12 @@ export interface Profile {
     entry_points: string[];
     limits: Record<string, boolean | number>;
   };
+  static_analysis?: {
+    ran: boolean;
+    reason?: string;
+    issue_count?: number;
+    file_count?: number;
+  };
   git?: {
     available: boolean;
     reason?: string;
