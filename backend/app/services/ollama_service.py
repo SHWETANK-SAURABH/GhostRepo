@@ -85,9 +85,7 @@ class OllamaClient:
             reachable=True, models=models, message=f"{len(models)} model(s) installed."
         )
 
-    def chat_json(
-        self, system: str, user: str, schema: dict[str, Any] | None = None
-    ) -> str:
+    def chat_json(self, system: str, user: str, schema: dict[str, Any] | None = None) -> str:
         """Return the raw reply text. Falls back to JSON mode if a schema is refused."""
         fmt: dict[str, Any] | str = schema if schema is not None else "json"
         try:

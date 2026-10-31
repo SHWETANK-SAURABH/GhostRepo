@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app import __version__
-from app.api import dashboard, health
+from app.api import dashboard, health, repositories
 from app.api import settings as settings_api
 from app.config import Settings
 from app.database.session import Database
@@ -49,6 +49,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(dashboard.router)
     app.include_router(settings_api.router)
+    app.include_router(repositories.router)
     return app
 
 
