@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-ra"
 markers = [
     "ollama: needs a running Ollama server and is skipped when none is reachable",
 ]

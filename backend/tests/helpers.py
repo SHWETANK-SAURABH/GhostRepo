@@ -52,3 +52,10 @@ def init_git(
 
 def kinds(result) -> set[str]:
     return {item.kind for item in result.evidence}
+
+
+def make_junction(link: Path, target: Path) -> None:
+    """Windows directory junctions need no extra privileges, unlike symlinks."""
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True
+    )

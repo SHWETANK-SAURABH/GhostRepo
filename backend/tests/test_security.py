@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,7 @@ from app.security.path_validation import (
 )
 from app.security.process_safety import ProcessError, run_command
 from app.security.secret_redaction import find_secrets, is_secret_file, redact, redact_data
+from tests.helpers import make_junction, make_repo, scan
 
 # Built by concatenation so these fake values never look like real tokens in the source.
 AWS_KEY = "AKIA" + "IOSFODNN7EXAMPLE"
@@ -71,6 +73,34 @@ class TestRepositoryPath:
         with pytest.raises(PathValidationError) as error:
             resolve_repository_path(str(tmp_path), workspace)
         assert str(tmp_path) not in error.value.message
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Junctions exist only on Windows")
+class TestJunctions:
+    def test_repository_path_rejects_junction_escape(self, workspace: Path, tmp_path: Path) -> None:
+        outside = tmp_path / "secret-place"
+        outside.mkdir()
+        make_junction(workspace / "link", outside)
+        with pytest.raises(PathValidationError) as error:
+            resolve_repository_path("link", workspace)
+        assert error.value.code == "outside_workspace"
+
+    def test_patch_path_rejects_write_through_junction(self, tmp_path: Path) -> None:
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        make_junction(repo / "out", outside)
+        with pytest.raises(PathValidationError):
+            validate_patch_path(repo, "out/file.txt")
+
+    def test_walker_does_not_enter_junctions(self, tmp_path: Path) -> None:
+        repo = make_repo(tmp_path / "repo", {"a.py": "x"})
+        outside = make_repo(tmp_path / "outside", {"secret.txt": "top secret"})
+        make_junction(repo / "link", outside)
+        _, inventory = scan(repo)
+        assert inventory.paths() == {"a.py"}
+        assert inventory.skipped_symlinks == 1
 
 
 class TestPatchPath:
