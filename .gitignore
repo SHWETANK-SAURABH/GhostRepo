@@ -1,0 +1,44 @@
+# Local-only working material
+prompt/
+.claude/
+CLAUDE.md
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Runtime data
+backend/data/
+*.sqlite3
+*.db
+
+# Scan workspace: only the placeholder is tracked
+workspace/*
+!workspace/.gitkeep
+
+# Secrets and local configuration
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
