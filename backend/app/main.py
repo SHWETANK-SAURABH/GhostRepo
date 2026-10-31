@@ -6,12 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app import __version__
-from app.api import dashboard, health, repositories
+from app.agents.orchestrator import InvestigationRunner
+from app.api import dashboard, health, investigations, repositories
 from app.api import settings as settings_api
 from app.config import Settings
 from app.database.session import Database
 from app.errors import install_error_handlers
 from app.schemas.common import ErrorResponse
+from app.schemas.settings import RuntimeSettings
+from app.services.ollama_service import OllamaClient
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -20,7 +23,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.database.init_schema()
+        app.state.runner.recover_interrupted()
         yield
+        app.state.runner.shutdown()
         app.state.database.dispose()
 
     app = FastAPI(
@@ -36,6 +41,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.database = Database(settings.database_url)
+    app.state.ollama_transport = None
+
+    def ollama_factory(runtime: RuntimeSettings) -> OllamaClient:
+        return OllamaClient(
+            endpoint=runtime.ollama_endpoint,
+            model=runtime.ollama_model,
+            timeout_seconds=settings.ai_timeout_seconds,
+            context_tokens=settings.ai_context_tokens,
+            transport=app.state.ollama_transport,
+        )
+
+    app.state.ollama_factory = ollama_factory
+    app.state.runner = InvestigationRunner(app.state.database, settings, ollama_factory)
 
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
     app.add_middleware(
@@ -50,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(dashboard.router)
     app.include_router(settings_api.router)
     app.include_router(repositories.router)
+    app.include_router(investigations.router)
     return app
 
 

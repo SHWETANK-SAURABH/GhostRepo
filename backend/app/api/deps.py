@@ -18,19 +18,5 @@ def get_runtime(
     return settings_service.load(db, settings)
 
 
-def build_ollama(request: Request, runtime: RuntimeSettings, settings: Settings) -> OllamaClient:
-    return OllamaClient(
-        endpoint=runtime.ollama_endpoint,
-        model=runtime.ollama_model,
-        timeout_seconds=settings.ai_timeout_seconds,
-        context_tokens=settings.ai_context_tokens,
-        transport=getattr(request.app.state, "ollama_transport", None),
-    )
-
-
-def get_ollama(
-    request: Request,
-    runtime: RuntimeSettings = Depends(get_runtime),
-    settings: Settings = Depends(get_settings),
-) -> OllamaClient:
-    return build_ollama(request, runtime, settings)
+def get_ollama(request: Request, runtime: RuntimeSettings = Depends(get_runtime)) -> OllamaClient:
+    return request.app.state.ollama_factory(runtime)
