@@ -15,7 +15,7 @@ from app.agents.ghost_analyst import (
     parse_analysis,
 )
 from app.models.analysis import GhostAnalysis
-from app.services.ollama_service import OllamaClient, model_matches
+from app.services.ollama_service import OllamaClient, grammar_schema, model_matches
 
 AWS_KEY = "AKIA" + "IOSFODNN7EXAMPLE"
 
@@ -78,6 +78,32 @@ def client_with(handler) -> OllamaClient:
 
 def chat_reply(content: str) -> httpx.Response:
     return httpx.Response(200, json={"message": {"role": "assistant", "content": content}})
+
+
+class TestGrammarSchema:
+    def test_removes_what_ollama_cannot_compile(self) -> None:
+        schema = grammar_schema(GhostAnalysis.model_json_schema())
+        text = json.dumps(schema)
+        for unsupported in ("$ref", "$defs", "maxLength", "minLength", "maxItems", "maximum"):
+            assert unsupported not in text
+
+    def test_keeps_structure_required_fields_and_enums(self) -> None:
+        schema = grammar_schema(GhostAnalysis.model_json_schema())
+        assert set(schema["required"]) == {
+            "summary",
+            "health_assessment",
+            "findings",
+            "recovery_plan",
+        }
+        finding = schema["properties"]["findings"]["items"]
+        assert finding["properties"]["severity"]["enum"][0] == "critical"
+        assert "evidence_ids" in finding["required"]
+
+    def test_field_named_like_a_keyword_is_kept(self) -> None:
+        schema = grammar_schema(GhostAnalysis.model_json_schema())
+        finding = schema["properties"]["findings"]["items"]
+        assert "title" in finding["properties"]
+        assert "description" in finding["properties"]
 
 
 class TestOutputParsing:
@@ -350,6 +376,10 @@ def test_live_model_returns_valid_structured_output() -> None:
         pytest.skip("Ollama is not running")
     if not model_matches(client.model, installed):
         pytest.skip(f"{client.model} is not installed")
+
+    # Called directly, so a schema Ollama cannot compile fails here instead of falling back.
+    schema = grammar_schema(GhostAnalysis.model_json_schema())
+    assert client._chat(SYSTEM_PROMPT, build_user_prompt(EVIDENCE), schema)
 
     result = analyze(client, EVIDENCE)
     valid = {item["key"] for item in EVIDENCE}

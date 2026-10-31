@@ -73,6 +73,16 @@ def _git(root: Path, *args: str, author: str, date: str) -> None:
 
 def create_demo_repo(target: Path) -> Path:
     """Create or rebuild the demo. Refuses to touch a directory it did not create."""
+    try:
+        return _create(target)
+    except OSError as exc:
+        raise DemoRepoError(
+            "The workspace is not writable, so the demo could not be created there. "
+            "With Docker, run the demo command from the setup guide on the host."
+        ) from exc
+
+
+def _create(target: Path) -> Path:
     if target.is_symlink():
         raise DemoRepoError("A symlink already uses the demo repository's name.")
     if target.exists():

@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from app.agents.ghost_analyst import extract_json
 from app.demo_repo import DEMO_MARKER
 from app.security.secret_redaction import is_secret_file, redact
-from app.services.ollama_service import OllamaClient, OllamaError
+from app.services.ollama_service import OllamaClient, OllamaError, grammar_schema
 
 NEEDS_CONFIRMATION = "**Needs confirmation:**"
 
@@ -304,7 +304,8 @@ def _overview_facts(profile: dict[str, Any], name: str) -> str:
 
 def _ai_overview(client: OllamaClient, profile: dict[str, Any], name: str) -> str:
     prompt = f"<facts>\n{_overview_facts(profile, name)}\n</facts>"
-    reply = client.chat_json(_OVERVIEW_SYSTEM, prompt, OverviewReply.model_json_schema())
+    schema = grammar_schema(OverviewReply.model_json_schema())
+    reply = client.chat_json(_OVERVIEW_SYSTEM, prompt, schema)
     return redact(OverviewReply.model_validate(extract_json(reply)).overview)
 
 

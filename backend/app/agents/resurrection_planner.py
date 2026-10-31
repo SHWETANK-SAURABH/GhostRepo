@@ -61,6 +61,11 @@ PLAYBOOKS: dict[str, Playbook] = {
             "Run a new GhostRepo investigation and confirm the finding is gone.",
         ),
     ),
+    "config-secret-low": Playbook(
+        "These are usually fake, but a real credential in a fixture is just as exposed.",
+        "Under 1 hour",
+        ("Confirm each flagged value is fake, or rotate it.",),
+    ),
     "docs-no-readme": Playbook(
         "Without a README, nobody can tell what the project does or how to start it.",
         "1 to 2 hours",

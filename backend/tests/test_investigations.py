@@ -458,6 +458,23 @@ class TestExport:
 
 
 class TestFindingsEngine:
+    def test_fixture_credentials_rank_below_production_ones(self) -> None:
+        def hit(key: str, path: str, in_fixture: bool) -> dict:
+            return {
+                "key": key,
+                "kind": "configuration.secret_pattern",
+                "description": "x",
+                "source_file": path,
+                "structured_data": {"rule": "aws-access-key", "in_test_or_example": in_fixture},
+                "detection_method": "m",
+            }
+
+        found = build_findings([hit("a", "app.py", False), hit("b", "tests/t.py", True)])
+        assert {f.title: f.severity for f in found} == {
+            "Credentials appear to be in the source": "critical",
+            "Possible credentials in test or example files": "low",
+        }
+
     def test_committed_secret_is_critical_and_ignored_one_is_low(self) -> None:
         evidence = [
             {

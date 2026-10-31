@@ -62,6 +62,21 @@ RISKY_SETTINGS = [
      re.compile(r"^\s*privileged\s*:\s*true", re.M), {".yml", ".yaml"}),
 ]  # fmt: skip
 
+_NON_PRODUCTION_DIRS = {
+    "test",
+    "tests",
+    "__tests__",
+    "spec",
+    "specs",
+    "testdata",
+    "fixtures",
+    "examples",
+    "example",
+    "samples",
+    "docs",
+}
+_TEST_FILE_NAME = re.compile(r"^(test_.+|.+_test\.\w+|.+\.(test|spec)\.\w+)$")
+
 ENV_REFERENCES = [
     re.compile(r"os\.environ(?:\.get)?[\[(]\s*['\"]([A-Z][A-Z0-9_]{1,63})['\"]"),
     re.compile(r"os\.getenv\(\s*['\"]([A-Z][A-Z0-9_]{1,63})['\"]"),
@@ -71,6 +86,14 @@ ENV_REFERENCES = [
     re.compile(r"env::var\(\"([A-Z][A-Z0-9_]{1,63})\"\)"),
     re.compile(r"System\.getenv\(\"([A-Z][A-Z0-9_]{1,63})\"\)"),
 ]
+
+
+def is_test_or_example_path(path: str) -> bool:
+    """Fixtures often hold fake credentials and deliberately risky settings."""
+    parts = path.lower().split("/")
+    return bool(_NON_PRODUCTION_DIRS.intersection(parts[:-1])) or bool(
+        _TEST_FILE_NAME.match(parts[-1])
+    )
 
 
 def _detect_license(ctx: ScanContext, path: str) -> str | None:
@@ -132,12 +155,20 @@ def analyze(ctx: ScanContext, inventory: Inventory) -> AnalyzerResult:
         if text is None:
             continue
         files_scanned += 1
+        non_production = is_test_or_example_path(item.path)
         if len(secret_hits) < MAX_REPORTED_HITS:
             secret_hits += [
-                {"rule": hit.rule, "file": item.path, "line": hit.line}
+                {
+                    "rule": hit.rule,
+                    "file": item.path,
+                    "line": hit.line,
+                    "in_test_or_example": non_production,
+                }
                 for hit in find_secrets(text)
             ]
         for rule, _, pattern, suffixes in RISKY_SETTINGS:
+            if non_production:
+                break
             if item.suffix in suffixes and len(risky_hits) < MAX_REPORTED_HITS:
                 match = pattern.search(text)
                 if match:

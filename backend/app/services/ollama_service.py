@@ -8,6 +8,18 @@ import httpx
 from app.schemas.common import OllamaModel, OllamaModelsResponse, OllamaStatus
 
 _STATUS_TIMEOUT = 3.0
+_MAX_REPLY_TOKENS = 2048
+_GRAMMAR_UNSUPPORTED = {
+    "$defs",
+    "title",
+    "description",
+    "minLength",
+    "maxLength",
+    "minItems",
+    "maxItems",
+    "minimum",
+    "maximum",
+}
 
 
 class OllamaError(Exception):
@@ -103,7 +115,11 @@ class OllamaClient:
             "model": self.model,
             "stream": False,
             "format": fmt,
-            "options": {"temperature": 0.1, "num_ctx": self.context_tokens},
+            "options": {
+                "temperature": 0.1,
+                "num_ctx": self.context_tokens,
+                "num_predict": _MAX_REPLY_TOKENS,
+            },
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
@@ -137,6 +153,32 @@ class OllamaClient:
 
 class _FormatRefused(Exception):
     pass
+
+
+def grammar_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Simplify a JSON schema for Ollama, which compiles it into a sampling grammar.
+
+    References and length limits can make that fail with "failed to parse grammar". This keeps
+    structure, types and enums. Pydantic still enforces the full limits on the reply.
+    """
+    definitions = schema.get("$defs", {})
+
+    def simplify(node: Any) -> Any:
+        if isinstance(node, list):
+            return [simplify(item) for item in node]
+        if not isinstance(node, dict):
+            return node
+        if "$ref" in node:
+            return simplify(definitions[node["$ref"].rsplit("/", 1)[-1]])
+        return {
+            key: {name: simplify(value) for name, value in child.items()}
+            if key == "properties"
+            else simplify(child)
+            for key, child in node.items()
+            if key not in _GRAMMAR_UNSUPPORTED
+        }
+
+    return simplify(schema)
 
 
 def model_matches(wanted: str, installed: list[str]) -> bool:

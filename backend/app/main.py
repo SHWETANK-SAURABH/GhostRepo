@@ -1,8 +1,9 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app import __version__
@@ -63,6 +64,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Content-Type"],
     )
     install_error_handlers(app)
+
+    @app.middleware("http")
+    async def reject_cross_site_writes(request: Request, call_next) -> Response:
+        """CORS does not stop a bodyless POST from another site, so check the Origin here."""
+        origin = request.headers.get("origin")
+        if (
+            request.method not in {"GET", "HEAD", "OPTIONS"}
+            and origin is not None
+            and origin not in settings.cors_origins
+        ):
+            return JSONResponse(
+                {
+                    "error": {
+                        "code": "forbidden_origin",
+                        "message": "Requests from this origin are not allowed.",
+                        "details": None,
+                    }
+                },
+                status_code=403,
+            )
+        return await call_next(request)
 
     app.include_router(health.router)
     app.include_router(dashboard.router)

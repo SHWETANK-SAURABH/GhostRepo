@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from app.models.analysis import GhostAnalysis, RejectedItem
 from app.security.secret_redaction import redact
 from app.services.evidence_service import build_model_context
-from app.services.ollama_service import OllamaClient, OllamaError
+from app.services.ollama_service import OllamaClient, OllamaError, grammar_schema
 
 MAX_ATTEMPTS = 2
 
@@ -232,7 +232,7 @@ def analyze(client: OllamaClient, evidence: list[dict[str, Any]]) -> AnalystResu
 
     prompt = build_user_prompt(evidence)
     valid_ids = {item["key"] for item in evidence}
-    schema = GhostAnalysis.model_json_schema()
+    schema = grammar_schema(GhostAnalysis.model_json_schema())
     last_error = "The model did not return a usable reply."
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -240,7 +240,8 @@ def analyze(client: OllamaClient, evidence: list[dict[str, Any]]) -> AnalystResu
         if attempt > 1:
             request += (
                 f"\n\nYour previous reply was rejected. {last_error} "
-                "Reply again with one JSON object that follows the schema."
+                "Reply again with one JSON object containing the keys summary, health_assessment, "
+                "findings and recovery_plan."
             )
         try:
             reply = client.chat_json(SYSTEM_PROMPT, request, schema)

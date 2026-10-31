@@ -191,12 +191,15 @@ def _secret_file_finding(item: dict[str, Any]) -> DraftFinding:
 
 
 def _secret_pattern_findings(items: list[dict[str, Any]]) -> list[DraftFinding]:
-    specific = [i for i in items if _ref(i).get("rule") != "hardcoded-credential"]
-    generic = [i for i in items if _ref(i).get("rule") == "hardcoded-credential"]
+    fixtures = [i for i in items if _ref(i).get("in_test_or_example")]
+    production = [i for i in items if not _ref(i).get("in_test_or_example")]
+    specific = [i for i in production if _ref(i).get("rule") != "hardcoded-credential"]
+    generic = [i for i in production if _ref(i).get("rule") == "hardcoded-credential"]
     findings = []
     for group, severity, confidence, title in (
         (specific, "critical", 0.85, "Credentials appear to be in the source"),
         (generic, "high", 0.6, "Possible hardcoded credentials"),
+        (fixtures, "low", 0.4, "Possible credentials in test or example files"),
     ):
         if not group:
             continue

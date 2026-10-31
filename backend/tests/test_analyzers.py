@@ -188,6 +188,10 @@ class TestGitHistorian:
         git_historian.tracked_paths(ctx, ["a.py"])
         assert not marker.exists()
 
+    def test_reads_repository_owned_by_another_user_setting(self, tmp_path: Path) -> None:
+        # safe.directory is what lets a mounted repository with a different owner be read.
+        assert "safe.directory=*" in git_historian._SAFE_CONFIG
+
     def test_commit_subject_secrets_are_redacted(self, tmp_path: Path) -> None:
         make_repo(tmp_path, {"a.py": "x"})
         init_git(tmp_path, message=f"add key {AWS_KEY}")
@@ -377,9 +381,28 @@ class TestConfigurationAnalyzer:
         result = configuration_analyzer.analyze(ctx, inventory)
         assert AWS_KEY not in json.dumps([vars(item) for item in result.evidence])
         secret = next(e for e in result.evidence if e.kind == "configuration.secret_pattern")
-        assert secret.data == {"rule": "aws-access-key", "file": "settings.py", "line": 1}
+        assert secret.data == {
+            "rule": "aws-access-key",
+            "file": "settings.py",
+            "line": 1,
+            "in_test_or_example": False,
+        }
         rules = {e.data["rule"] for e in result.evidence if e.kind == "configuration.risky_setting"}
         assert rules == {"debug-enabled", "wildcard-allowed-hosts"}
+
+    def test_fixture_matches_are_marked_and_risky_settings_ignored(self, tmp_path: Path) -> None:
+        make_repo(
+            tmp_path,
+            {
+                "tests/test_settings.py": f'KEY = "{AWS_KEY}"\nDEBUG = True\n',
+                "app/settings_test.py": "DEBUG = True\n",
+            },
+        )
+        ctx, inventory = scan(tmp_path)
+        result = configuration_analyzer.analyze(ctx, inventory)
+        secret = next(e for e in result.evidence if e.kind == "configuration.secret_pattern")
+        assert secret.data["in_test_or_example"] is True
+        assert "configuration.risky_setting" not in kinds(result)
 
     def test_env_file_contents_are_not_read(self, tmp_path: Path) -> None:
         make_repo(tmp_path, {".env": f"KEY={AWS_KEY}\n"})

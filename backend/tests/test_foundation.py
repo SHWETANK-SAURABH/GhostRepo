@@ -44,6 +44,21 @@ def test_cors_allows_only_configured_origins(client: TestClient) -> None:
     assert "access-control-allow-origin" not in denied.headers
 
 
+def test_cross_site_writes_are_rejected(client: TestClient, workspace: Path) -> None:
+    # A page on another site can send this without a preflight.
+    response = client.post("/api/repositories/demo", headers={"origin": "http://evil.example"})
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "forbidden_origin"
+    assert not (workspace / "haunted-demo").exists()
+
+
+def test_same_origin_writes_and_cross_site_reads_are_unaffected(client: TestClient) -> None:
+    origin = {"origin": "http://localhost:3000"}
+    assert client.post("/api/repositories/demo", headers=origin).status_code == 201
+    assert client.post("/api/repositories/demo").status_code == 201
+    assert client.get("/api/health", headers={"origin": "http://evil.example"}).status_code == 200
+
+
 def _settings_body(client: TestClient, **changes) -> dict:
     return {**client.get("/api/settings").json(), **changes}
 

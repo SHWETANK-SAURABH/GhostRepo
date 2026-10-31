@@ -35,6 +35,9 @@ _SAFE_CONFIG = [
     "-c", "core.attributesFile=/dev/null",
     "-c", "diff.external=",
     "-c", "protocol.allow=never",
+    # Mounted or copied repositories often have another owner. Overriding this is safe only
+    # because the settings above already stop repository config from starting programs.
+    "-c", "safe.directory=*",
 ]  # fmt: skip
 
 
@@ -49,6 +52,7 @@ def _git_env(root: Path) -> dict[str, str]:
         GIT_CONFIG_GLOBAL=os.devnull,
         GIT_TERMINAL_PROMPT="0",
         GIT_OPTIONAL_LOCKS="0",
+        GIT_NO_LAZY_FETCH="1",
         GIT_PAGER="cat",
         LC_ALL="C",
         # Without this, a folder with no .git would report its parent's history.

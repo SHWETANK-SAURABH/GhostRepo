@@ -1,0 +1,62 @@
+# GhostRepo for local use. Ports are published on the loopback interface only.
+#
+#   docker compose up --build
+#
+# By default the backend uses Ollama running on the host. To run Ollama in a container too:
+#
+#   GHOSTREPO_OLLAMA_ENDPOINT=http://ollama:11434 docker compose --profile ollama up --build
+#   docker compose exec ollama ollama pull gemma3:4b
+
+services:
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    environment:
+      GHOSTREPO_OLLAMA_ENDPOINT: ${GHOSTREPO_OLLAMA_ENDPOINT:-http://host.docker.internal:11434}
+      GHOSTREPO_OLLAMA_MODEL: ${GHOSTREPO_OLLAMA_MODEL:-gemma3:4b}
+      GHOSTREPO_AI_ENABLED: ${GHOSTREPO_AI_ENABLED:-true}
+      GHOSTREPO_CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      GHOSTREPO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
+    volumes:
+      # Read-only: the backend cannot change a scanned repository even if it tried to.
+      - ${GHOSTREPO_WORKSPACE:-./workspace}:/workspace:ro
+      - ghostrepo-data:/data
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - 127.0.0.1:8000:8000
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8000
+    depends_on:
+      - backend
+    ports:
+      - 127.0.0.1:3000:3000
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.32.4
+    profiles:
+      - ollama
+    volumes:
+      - ollama-models:/root/.ollama
+    ports:
+      - 127.0.0.1:11434:11434
+    restart: unless-stopped
+
+volumes:
+  ghostrepo-data:
+  ollama-models:
