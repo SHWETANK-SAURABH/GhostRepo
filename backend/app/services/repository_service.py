@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from app.analyzers.git_historian import git_metadata_state
+from app.demo_repo import DEMO_MARKER
 from app.schemas.repository import (
     CandidatesResponse,
     RepositoryCandidate,
@@ -47,6 +48,7 @@ def list_candidates(runtime: RuntimeSettings) -> CandidatesResponse:
                     name=entry.name,
                     relative_path=entry.name,
                     is_git=git_metadata_state(path) == "present",
+                    is_demo=(path / DEMO_MARKER).is_file(),
                 )
             )
     return CandidatesResponse(workspace_available=True, candidates=candidates)

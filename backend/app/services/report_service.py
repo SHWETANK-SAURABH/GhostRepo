@@ -127,7 +127,8 @@ def export_markdown(report: ReportOut) -> str:
         "## Repository",
         "",
         f"- Primary language: {scout.get('primary_language') or 'unknown'}",
-        f"- Frameworks: {', '.join(investigation.repository.detected_frameworks) or 'none detected'}",
+        "- Frameworks: "
+        + (", ".join(investigation.repository.detected_frameworks) or "none detected"),
         f"- Files scanned: {scout.get('file_count', 'unknown')}",
     ]
     if git.get("available") and git.get("latest_commit"):

@@ -9,6 +9,7 @@ class RepositoryCandidate(BaseModel):
     name: str
     relative_path: str
     is_git: bool
+    is_demo: bool = False
 
 
 class CandidatesResponse(BaseModel):
