@@ -1,6 +1,6 @@
 "use client";
 
-import { Ghost, LayoutDashboard, ScanSearch, Settings } from "lucide-react";
+import { Ghost, History, LayoutDashboard, ScanSearch, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -10,6 +10,7 @@ import { RuntimeBadge } from "@/components/runtime-status";
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/investigations/new", label: "New investigation", icon: ScanSearch },
+  { href: "/investigations", label: "History", icon: History },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

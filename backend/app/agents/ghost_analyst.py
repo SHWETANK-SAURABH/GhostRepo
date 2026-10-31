@@ -57,6 +57,25 @@ related_evidence_ids."""
 _THINK_BLOCK = re.compile(r"<think>.*?</think>", re.S | re.I)
 _DELIMITER = re.compile(r"</?\s*evidence\s*>", re.I)
 
+# Prompts alone do not stop small models from saying these, so they are enforced here.
+_UNSUPPORTED_CLAIMS = [
+    (
+        re.compile(r"\babandon\w*|\bunmaintained\b|\bstagnat\w*|\bdead project\b", re.I),
+        "It judges maintenance status, which commit history alone cannot establish.",
+    ),
+    (
+        re.compile(r"\bvulnerab\w*|\boutdated\b|\bdeprecated\b|\bCVE-\d", re.I),
+        "It claims something is vulnerable or outdated, which was not checked.",
+    ),
+    (
+        re.compile(r"\btests?\s+(?:all\s+)?(?:pass|fail)\w*", re.I),
+        "It claims test results, but tests were not run.",
+    ),
+]
+_SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+_REMOVED_TEXT = "The model's text was removed because it made claims the evidence does not support."
+
 
 class AnalystFailure(Exception):
     """AI analysis did not produce usable output. The message is safe to show."""
@@ -134,6 +153,65 @@ def check_references(
     return analysis.model_copy(update={"findings": findings, "recovery_plan": tasks}), rejected
 
 
+def _unsupported_reason(text: str) -> str | None:
+    for pattern, reason in _UNSUPPORTED_CLAIMS:
+        if pattern.search(text):
+            return reason
+    return None
+
+
+def _clean_prose(text: str, label: str, rejected: list[RejectedItem]) -> str:
+    """Remove unsupported sentences from free text, and record that it happened."""
+    kept = []
+    for sentence in _SENTENCE_END.split(text):
+        reason = _unsupported_reason(sentence)
+        if reason:
+            rejected.append(RejectedItem(item_type="statement", title=label, reason=reason))
+        else:
+            kept.append(sentence)
+    return " ".join(kept) or _REMOVED_TEXT
+
+
+def enforce_policy(analysis: GhostAnalysis) -> tuple[GhostAnalysis, list[RejectedItem]]:
+    """Drop claims the evidence cannot support, and stop commit age from raising severity."""
+    rejected: list[RejectedItem] = []
+    findings = []
+    for finding in analysis.findings:
+        text = f"{finding.title} {finding.description} {finding.recommendation}"
+        reason = _unsupported_reason(text)
+        if reason:
+            rejected.append(RejectedItem(item_type="finding", title=finding.title, reason=reason))
+            continue
+        history_only = finding.evidence_ids and all(
+            ref.startswith("ev-git-") for ref in finding.evidence_ids
+        )
+        if history_only and _SEVERITY_RANK[finding.severity] < _SEVERITY_RANK["low"]:
+            finding = finding.model_copy(update={"severity": "low"})
+        findings.append(finding)
+
+    tasks = []
+    for task in analysis.recovery_plan:
+        reason = _unsupported_reason(f"{task.title} {task.description}")
+        if reason:
+            rejected.append(
+                RejectedItem(item_type="recovery_task", title=task.title, reason=reason)
+            )
+        else:
+            tasks.append(task)
+
+    clean = analysis.model_copy(
+        update={
+            "summary": _clean_prose(analysis.summary, "Summary", rejected),
+            "health_assessment": _clean_prose(
+                analysis.health_assessment, "Health assessment", rejected
+            ),
+            "findings": findings,
+            "recovery_plan": tasks,
+        }
+    )
+    return clean, rejected
+
+
 def _redact_analysis(analysis: GhostAnalysis) -> GhostAnalysis:
     """A model could echo a secret it inferred; stored output goes through redaction too."""
     data = analysis.model_dump()
@@ -174,6 +252,7 @@ def analyze(client: OllamaClient, evidence: list[dict[str, Any]]) -> AnalystResu
             last_error = str(exc)
             continue
         clean, rejected = check_references(_redact_analysis(parsed), valid_ids)
-        return AnalystResult(clean, rejected, attempt)
+        clean, unsupported = enforce_policy(clean)
+        return AnalystResult(clean, rejected + unsupported, attempt)
 
     raise AnalystFailure(f"The model's reply could not be validated. {last_error}")

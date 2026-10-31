@@ -11,7 +11,8 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.agents.ghost_analyst import extract_json
-from app.security.secret_redaction import redact
+from app.demo_repo import DEMO_MARKER
+from app.security.secret_redaction import is_secret_file, redact
 from app.services.ollama_service import OllamaClient, OllamaError
 
 NEEDS_CONFIRMATION = "**Needs confirmation:**"
@@ -218,7 +219,11 @@ def _testing_lines(profile: dict[str, Any]) -> tuple[list[str], bool]:
 
 
 def _structure_lines(profile: dict[str, Any]) -> list[str]:
-    entries = profile.get("repository", {}).get("structure", [])
+    entries = [
+        entry
+        for entry in profile.get("repository", {}).get("structure", [])
+        if not is_secret_file(entry["path"]) and entry["path"] != DEMO_MARKER
+    ]
     if not entries:
         return [f"{NEEDS_CONFIRMATION} the repository structure could not be read."]
     tree = [

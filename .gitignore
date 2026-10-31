@@ -41,3 +41,4 @@ Thumbs.db
 .vscode/
 .idea/
 AGENTS.md
+frontend/e2e/.output/

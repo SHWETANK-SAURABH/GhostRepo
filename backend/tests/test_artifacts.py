@@ -98,6 +98,20 @@ class TestReadmeGenerator:
         assert "deploy" not in content
         assert "rm -rf" not in content
 
+    def test_structure_leaves_out_secret_file_names(self) -> None:
+        repository = {
+            **profile()["repository"],
+            "structure": [
+                {"path": ".env", "type": "file"},
+                {"path": "server.pem", "type": "file"},
+                {"path": "main.py", "type": "file"},
+            ],
+        }
+        content, _ = build_markdown(profile(repository=repository), "demo")
+        assert "main.py" in content
+        assert ".env" not in content
+        assert "server.pem" not in content
+
     def test_env_variable_names_only(self) -> None:
         data = profile(
             configuration={"env_variables": ["DB_URL"], "env_templates": [], "license_files": []}

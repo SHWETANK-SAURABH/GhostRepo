@@ -10,6 +10,7 @@ from app.agents.ghost_analyst import (
     analyze,
     build_user_prompt,
     check_references,
+    enforce_policy,
     extract_json,
     parse_analysis,
 )
@@ -153,6 +154,75 @@ class TestEvidenceReferences:
         assert len(clean.findings) == 1
         assert len(clean.recovery_plan) == 1
         assert rejected == []
+
+
+class TestClaimPolicy:
+    """Real gemma3:4b output broke these rules despite the prompt, so code enforces them."""
+
+    def _finding(self, **changes) -> dict:
+        return {**reply()["findings"][0], **changes}
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "The repository has signs of stagnation or abandonment.",
+            "This project looks abandoned.",
+            "Flask is outdated and should be replaced.",
+            "requests has known vulnerabilities.",
+            "All tests pass.",
+        ],
+    )
+    def test_rejects_unsupported_findings(self, text: str) -> None:
+        analysis = GhostAnalysis.model_validate(reply(findings=[self._finding(description=text)]))
+        clean, rejected = enforce_policy(analysis)
+        assert clean.findings == []
+        assert rejected[0].item_type == "finding"
+
+    def test_removes_only_unsupported_sentences_from_prose(self) -> None:
+        analysis = GhostAnalysis.model_validate(
+            reply(summary="Documentation is thin. The project is abandoned. Tests exist.")
+        )
+        clean, rejected = enforce_policy(analysis)
+        assert clean.summary == "Documentation is thin. Tests exist."
+        assert rejected[0].item_type == "statement"
+
+    def test_fully_unsupported_prose_is_replaced_not_emptied(self) -> None:
+        analysis = GhostAnalysis.model_validate(reply(health_assessment="It is unmaintained."))
+        clean, _ = enforce_policy(analysis)
+        assert "removed" in clean.health_assessment
+
+    def test_commit_history_alone_cannot_raise_severity(self) -> None:
+        analysis = GhostAnalysis.model_validate(
+            reply(
+                findings=[
+                    self._finding(title="Quiet", severity="critical", evidence_ids=["ev-git-001"]),
+                    self._finding(
+                        title="Mixed",
+                        severity="critical",
+                        evidence_ids=["ev-git-001", "ev-cfg-001"],
+                    ),
+                ]
+            )
+        )
+        clean, _ = enforce_policy(analysis)
+        assert {f.title: f.severity for f in clean.findings} == {
+            "Quiet": "low",
+            "Mixed": "critical",
+        }
+
+    def test_rejects_unsupported_recovery_tasks(self) -> None:
+        task = {**reply()["recovery_plan"][0], "title": "Replace outdated packages"}
+        clean, rejected = enforce_policy(GhostAnalysis.model_validate(reply(recovery_plan=[task])))
+        assert clean.recovery_plan == []
+        assert rejected[0].item_type == "recovery_task"
+
+    def test_policy_is_applied_to_model_replies(self) -> None:
+        result = analyze(
+            client_with(lambda _: chat_reply(json.dumps(reply(summary="It is abandoned.")))),
+            EVIDENCE,
+        )
+        assert "abandoned" not in result.analysis.summary
+        assert result.rejected
 
 
 class TestPrompt:

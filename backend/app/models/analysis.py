@@ -43,6 +43,6 @@ class GhostAnalysis(BaseModel):
 
 
 class RejectedItem(BaseModel):
-    item_type: Literal["finding", "recovery_task"]
+    item_type: Literal["finding", "recovery_task", "statement"]
     title: str
     reason: str
