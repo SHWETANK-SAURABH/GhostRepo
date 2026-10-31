@@ -465,11 +465,17 @@ class InvestigationRunner:
         self._set_stage(investigation_id, "report", "running")
         with self.database.scope() as db:
             row = db.get(Investigation, investigation_id)
+            # One commit, so a client never sees a finished run with a stage still running.
             row.status = "completed"
             row.completed_at = utcnow()
             row.current_stage = None
+            row.stages = [
+                {**stage, "status": "completed", "message": None}
+                if stage["key"] == "report"
+                else stage
+                for stage in row.stages
+            ]
             if failures:
                 row.error_message = (
                     f"Some stages failed, so this report is incomplete: {', '.join(failures)}."
                 )
-        self._set_stage(investigation_id, "report", "completed")
