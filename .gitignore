@@ -1,7 +1,5 @@
 # Local-only working material
 prompt/
-.claude/
-CLAUDE.md
 
 # Python
 __pycache__/
@@ -42,3 +40,4 @@ workspace/*
 Thumbs.db
 .vscode/
 .idea/
+AGENTS.md
