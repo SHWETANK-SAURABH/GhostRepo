@@ -92,7 +92,7 @@ Tests cover traversal, symlink and junction escapes, hostile Git configuration, 
 
 - **Docker is unverified.** The configuration is valid, but no image has been built or run. The cases to watch are the proxy's Host header and reading mounted repositories owned by another user.
 - **Qwen3 is untested.** Only `gemma3:4b` was run.
-- **The browser walkthrough had one failed run** out of five full runs, when the frontend server had not finished starting. It has no readiness wait of its own, so start the servers first.
+- **The browser walkthrough failed in three of six runs.** Two failures had known causes that are fixed: a stale server left over from an earlier check, and the script treating its own deliberate 422 as an error. The third is unconfirmed. The frontend port was not yet listening when checked, and the walkthrough passed on rerun after waiting for the servers to respond. The script has no readiness wait of its own, so start both servers and confirm they respond first.
 - **AI text can still be wrong.** Citations and known claim types are enforced, but a citation shows only that the evidence exists, not that the model interpreted it correctly.
 - **The AI README overview is labeled but has no claim policy.** In one test, it described the project's "original purpose" with more confidence than the facts supported.
 - **Only some of the frontend is covered by component tests.** The dashboard, forms, progress, findings, plan, README and patch approval have them. Other pages are covered by the walkthrough.
